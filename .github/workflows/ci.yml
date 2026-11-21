@@ -201,3 +201,6 @@ jobs:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           # No PR comments, so the job only needs read permissions.
           GITLEAKS_ENABLE_COMMENTS: 'false'
+          # No SARIF artifact (it was uploaded even when empty); findings are
+          # shown in the job log and summary, and fail the job.
+          GITLEAKS_ENABLE_UPLOAD_ARTIFACT: 'false'
