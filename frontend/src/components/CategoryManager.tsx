@@ -9,7 +9,11 @@ interface Props {
   onClose: () => void;
 }
 
-export default function CategoryManager({ categories, onChanged, onClose }: Props) {
+export default function CategoryManager({
+  categories,
+  onChanged,
+  onClose,
+}: Props) {
   const [name, setName] = useState('');
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);

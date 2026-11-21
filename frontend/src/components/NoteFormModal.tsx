@@ -9,7 +9,12 @@ interface Props {
   onCancel: () => void;
 }
 
-export default function NoteFormModal({ note, categories, onSave, onCancel }: Props) {
+export default function NoteFormModal({
+  note,
+  categories,
+  onSave,
+  onCancel,
+}: Props) {
   const [title, setTitle] = useState(note?.title ?? '');
   const [content, setContent] = useState(note?.content ?? '');
   const [selected, setSelected] = useState<Set<number>>(
@@ -36,7 +41,11 @@ export default function NoteFormModal({ note, categories, onSave, onCancel }: Pr
     setSaving(true);
     setError(null);
     try {
-      await onSave({ title: title.trim(), content, categoryIds: [...selected] });
+      await onSave({
+        title: title.trim(),
+        content,
+        categoryIds: [...selected],
+      });
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Could not save the note');
       setSaving(false);
@@ -94,7 +103,9 @@ export default function NoteFormModal({ note, categories, onSave, onCancel }: Pr
               {categories.map((category) => (
                 <label
                   key={category.id}
-                  className={selected.has(category.id) ? 'pick selected' : 'pick'}
+                  className={
+                    selected.has(category.id) ? 'pick selected' : 'pick'
+                  }
                 >
                   <input
                     type="checkbox"

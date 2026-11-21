@@ -8,7 +8,13 @@ interface Props {
   size?: 'sm' | 'md';
 }
 
-export default function Modal({ title, onClose, children, footer, size = 'md' }: Props) {
+export default function Modal({
+  title,
+  onClose,
+  children,
+  footer,
+  size = 'md',
+}: Props) {
   useEffect(() => {
     const onKey = (event: KeyboardEvent) => {
       if (event.key === 'Escape') onClose();

@@ -33,7 +33,9 @@ async function main(): Promise<number> {
       );
       return 0;
     }
-    console.error('✖ Entities and database schema differ. TypeORM would run:\n');
+    console.error(
+      '✖ Entities and database schema differ. TypeORM would run:\n',
+    );
     for (const { query } of upQueries) console.error(`  ${query};`);
     console.error(
       '\nFix the entity mapping, or add a Flyway migration in db/migrations.',

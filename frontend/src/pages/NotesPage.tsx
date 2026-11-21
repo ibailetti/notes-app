@@ -87,7 +87,9 @@ export default function NotesPage({ user, onLogout }: Props) {
     await loadNotes();
   }
 
-  const activeFilterName = categories.find((c) => c.id === categoryFilter)?.name;
+  const activeFilterName = categories.find(
+    (c) => c.id === categoryFilter,
+  )?.name;
 
   return (
     <div className="app">
@@ -152,7 +154,10 @@ export default function NotesPage({ user, onLogout }: Props) {
             >
               Categories
             </button>
-            <button className="btn btn-primary" onClick={() => setEditing('new')}>
+            <button
+              className="btn btn-primary"
+              onClick={() => setEditing('new')}
+            >
               + New note
             </button>
           </div>
@@ -194,7 +199,9 @@ export default function NotesPage({ user, onLogout }: Props) {
                 onDelete={() => setPendingDelete(note)}
                 onToggleArchive={() =>
                   run(() =>
-                    note.archived ? unarchiveNote(note.id) : archiveNote(note.id),
+                    note.archived
+                      ? unarchiveNote(note.id)
+                      : archiveNote(note.id),
                   )
                 }
                 onRemoveCategory={(categoryId) =>

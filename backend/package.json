@@ -14,7 +14,12 @@
     "db:migrate": "docker compose run --rm flyway migrate",
     "db:info": "docker compose run --rm flyway info",
     "db:check": "nest build && node dist/database/check-schema.js",
-    "db:down": "docker compose down"
+    "db:down": "docker compose down",
+    "lint": "eslint .",
+    "format": "prettier --write .",
+    "format:check": "prettier --check .",
+    "test": "jest",
+    "test:cov": "jest --coverage"
   },
   "dependencies": {
     "@nestjs/common": "^11.2.6",
@@ -32,10 +37,38 @@
     "typeorm": "^0.3.31"
   },
   "devDependencies": {
+    "@eslint/js": "^10.0.1",
     "@nestjs/cli": "^11.0.24",
     "@types/bcrypt": "^6.0.0",
     "@types/express": "^5.0.6",
+    "@types/jest": "^30.0.0",
     "@types/node": "^26.6.2",
-    "typescript": "^5.9.3"
+    "eslint": "^10.15.0",
+    "eslint-config-prettier": "^10.1.8",
+    "globals": "^17.14.0",
+    "jest": "^30.5.2",
+    "prettier": "^3.10.1",
+    "ts-jest": "^29.4.15",
+    "typescript": "^5.9.3",
+    "typescript-eslint": "^8.73.0"
+  },
+  "jest": {
+    "rootDir": "src",
+    "moduleFileExtensions": [
+      "js",
+      "json",
+      "ts"
+    ],
+    "testRegex": ".*.spec.ts$",
+    "transform": {
+      "^.+.ts$": "ts-jest"
+    },
+    "testEnvironment": "node",
+    "collectCoverageFrom": [
+      "**/*.ts",
+      "!main.ts",
+      "!database/check-schema.ts"
+    ],
+    "coverageDirectory": "../coverage"
   }
 }

@@ -28,7 +28,8 @@ export class ConstraintNamingStrategy
   }
 
   private table(tableOrName: Table | string): string {
-    const name = typeof tableOrName === 'string' ? tableOrName : tableOrName.name;
+    const name =
+      typeof tableOrName === 'string' ? tableOrName : tableOrName.name;
     // Strip a schema prefix such as "public.notes".
     return name.split('.').pop() as string;
   }

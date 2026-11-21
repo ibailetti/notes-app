@@ -17,12 +17,12 @@ services:
       POSTGRES_USER: ${DB_USER:-notes}
       POSTGRES_PASSWORD: ${DB_PASSWORD:-notes}
     ports:
-      - "${DB_PORT:-5432}:5432"
+      - '${DB_PORT:-5432}:5432'
     volumes:
       # Postgres 18+ images keep their data under /var/lib/postgresql/<major>.
       - pgdata:/var/lib/postgresql
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U $${POSTGRES_USER} -d $${POSTGRES_DB}"]
+      test: ['CMD-SHELL', 'pg_isready -U $${POSTGRES_USER} -d $${POSTGRES_DB}']
       interval: 2s
       timeout: 5s
       retries: 30
@@ -30,15 +30,15 @@ services:
   flyway:
     image: flyway/flyway:13.13.0-alpine
     # One-shot tool: run it with `docker compose run --rm flyway <command>`.
-    profiles: ["tools"]
+    profiles: ['tools']
     command: migrate
     environment:
       FLYWAY_URL: jdbc:postgresql://postgres:5432/${DB_NAME:-notes}
       FLYWAY_USER: ${DB_USER:-notes}
       FLYWAY_PASSWORD: ${DB_PASSWORD:-notes}
       FLYWAY_LOCATIONS: filesystem:/flyway/migrations
-      FLYWAY_CONNECT_RETRIES: "10"
-      FLYWAY_CLEAN_DISABLED: "true"
+      FLYWAY_CONNECT_RETRIES: '10'
+      FLYWAY_CLEAN_DISABLED: 'true'
     volumes:
       - ./db/migrations:/flyway/migrations:ro
     depends_on:

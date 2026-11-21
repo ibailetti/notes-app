@@ -19,7 +19,13 @@
   --shadow-lg: 0 12px 40px rgb(20 20 20 / 0.18);
 
   color-scheme: light;
-  font-family: system-ui, -apple-system, 'Segoe UI', Roboto, 'Helvetica Neue', Arial,
+  font-family:
+    system-ui,
+    -apple-system,
+    'Segoe UI',
+    Roboto,
+    'Helvetica Neue',
+    Arial,
     sans-serif;
   font-size: 15px;
   line-height: 1.5;
@@ -116,7 +122,10 @@ code {
   font-weight: 500;
   cursor: pointer;
   white-space: nowrap;
-  transition: background 0.15s, border-color 0.15s, color 0.15s;
+  transition:
+    background 0.15s,
+    border-color 0.15s,
+    color 0.15s;
 }
 
 .btn:disabled {
@@ -232,7 +241,9 @@ textarea {
   border: 1px solid var(--border-strong);
   border-radius: 8px;
   background: var(--surface);
-  transition: border-color 0.15s, box-shadow 0.15s;
+  transition:
+    border-color 0.15s,
+    box-shadow 0.15s;
 }
 
 input:not([type='checkbox']),
@@ -613,7 +624,10 @@ textarea:focus {
   font-size: 0.87rem;
   cursor: pointer;
   user-select: none;
-  transition: background 0.15s, border-color 0.15s, color 0.15s;
+  transition:
+    background 0.15s,
+    border-color 0.15s,
+    color 0.15s;
 }
 
 .pick input {
