@@ -1,0 +1,203 @@
+# Reusable CI: lint, test and build both apps, verify the Flyway migrations
+# against a real PostgreSQL, run the end-to-end suite and the security checks.
+#
+# Called by develop.yml today; staging/production pipelines can call it too:
+#   jobs:
+#     ci:
+#       uses: ./.github/workflows/ci.yml
+name: CI
+
+on:
+  workflow_call:
+    inputs:
+      node-version:
+        description: Node.js version used by every job.
+        type: string
+        default: '24'
+
+permissions:
+  contents: read
+
+jobs:
+  backend:
+    name: Backend (lint, test, build)
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    defaults:
+      run:
+        working-directory: backend
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version: ${{ inputs.node-version }}
+          cache: npm
+          cache-dependency-path: backend/package-lock.json
+      - run: npm ci
+      - name: Check formatting
+        run: npm run format:check
+      - name: Lint
+        run: npm run lint
+      - name: Unit tests
+        run: npm test -- --ci
+      - name: Build
+        run: npm run build
+
+  frontend:
+    name: Frontend (lint, test, build)
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    defaults:
+      run:
+        working-directory: frontend
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version: ${{ inputs.node-version }}
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
+      - run: npm ci
+      - name: Check formatting
+        run: npm run format:check
+      - name: Lint
+        run: npm run lint
+      - name: Unit tests
+        run: npm test
+      - name: Type-check and build
+        run: npm run build
+
+  migrations:
+    name: Database migrations (Flyway + entity check)
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    defaults:
+      run:
+        working-directory: backend
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          # Full history, to compare migrations against the previous state.
+          fetch-depth: 0
+          persist-credentials: false
+
+      - name: Applied migrations are never edited
+        env:
+          # PR: compare with the target branch. Push: compare with the previous tip.
+          BASE_SHA: ${{ github.event.pull_request.base.sha || github.event.before }}
+        run: |
+          if [ -z "$BASE_SHA" ] || [ "$BASE_SHA" = "0000000000000000000000000000000000000000" ] ||
+            ! git cat-file -e "$BASE_SHA^{commit}" 2>/dev/null; then
+            echo "No previous commit to compare with; skipping."
+            exit 0
+          fi
+          # Only new files (A) are allowed in db/migrations; anything else
+          # (modified, deleted, renamed…) would change an applied migration.
+          changed="$(git diff --name-status "$BASE_SHA" HEAD -- db/migrations | grep -v '^A' || true)"
+          if [ -n "$changed" ]; then
+            echo "::error::Existing migrations were changed. Add a new V<n>__*.sql file instead:"
+            echo "$changed"
+            exit 1
+          fi
+          echo "OK: only new migration files (if any)."
+
+      - name: Start PostgreSQL
+        # Same docker-compose.yml (and image versions) as local development.
+        run: docker compose up -d --wait postgres
+
+      - name: Flyway migrate
+        run: docker compose run --rm -T flyway migrate -validateMigrationNaming=true
+
+      - name: Flyway validate
+        run: docker compose run --rm -T flyway validate -validateMigrationNaming=true
+
+      - name: Flyway info (every migration must be Success)
+        run: |
+          docker compose run --rm -T flyway info -outputType=json > "$RUNNER_TEMP/flyway-info.json"
+          {
+            echo "### Flyway migrations"
+            echo
+            echo "| Version | Description | State |"
+            echo "| --- | --- | --- |"
+            jq -r '.migrations[] | "| \(.version) | \(.description) | \(.state) |"' "$RUNNER_TEMP/flyway-info.json"
+          } >> "$GITHUB_STEP_SUMMARY"
+          jq -e '(.migrations | length) > 0 and all(.migrations[]; .state == "Success")' \
+            "$RUNNER_TEMP/flyway-info.json" > /dev/null ||
+            { echo "::error::Not every migration is in state Success"; jq '.migrations' "$RUNNER_TEMP/flyway-info.json"; exit 1; }
+
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version: ${{ inputs.node-version }}
+          cache: npm
+          cache-dependency-path: backend/package-lock.json
+      - run: npm ci
+
+      - name: Entities match the schema
+        run: npm run db:check
+
+      - name: Stop PostgreSQL
+        if: always()
+        run: docker compose down -v
+
+  e2e:
+    name: End-to-end (./test.sh)
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version: ${{ inputs.node-version }}
+          cache: npm
+          cache-dependency-path: |
+            backend/package-lock.json
+            frontend/package-lock.json
+      - name: Install dependencies
+        run: |
+          npm ci --prefix backend
+          npm ci --prefix frontend
+      - name: Run ./test.sh
+        # Dependencies are already installed with npm ci.
+        env:
+          SKIP_INSTALL: '1'
+        run: ./test.sh
+
+  security:
+    name: Security (npm audit, secret scan)
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    permissions:
+      contents: read
+      pull-requests: read
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+
+      - name: npm audit (report only)
+        # Report only for now: findings go to the job summary and never fail
+        # the build. Tighten with --audit-level=high once they are fixed.
+        run: |
+          for app in backend frontend; do
+            {
+              echo "### npm audit: $app (production dependencies)"
+              echo
+              echo '```'
+              (cd "$app" && npm audit --omit=dev 2>&1) || true
+              echo '```'
+            } >> "$GITHUB_STEP_SUMMARY"
+          done
+
+      - name: Secret scan (gitleaks)
+        uses: gitleaks/gitleaks-action@e0c47f4f8be36e29cdc102c57e68cb5cbf0e8d1e # v3.0.0
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          # No PR comments, so the job only needs read permissions.
+          GITLEAKS_ENABLE_COMMENTS: 'false'

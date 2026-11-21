@@ -173,6 +173,46 @@ PostgreSQL container and volume (Compose project `notes-test`, port 55432) that
 are removed at the end, so your own notes are never touched. Ports 3000, 5173
 and 55432 must be free.
 
+### Lint, format and unit tests
+
+Each app has the same scripts (run them inside `backend/` or `frontend/`):
+
+| Command                | What it does                                              |
+| ---------------------- | --------------------------------------------------------- |
+| `npm run lint`         | ESLint (type-aware TypeScript rules)                      |
+| `npm run format:check` | Prettier check (`npm run format` rewrites the files)      |
+| `npm test`             | Unit tests: Jest in `backend/`, Vitest + Testing Library in `frontend/` |
+
+Unit tests live next to the code (`*.spec.ts` in the backend, `*.test.ts(x)` in
+the frontend) and don't need a database.
+
+## Continuous integration
+
+GitHub Actions runs on every push to `develop` and every pull request that
+targets `develop` (`.github/workflows/develop.yml`). Nothing is deployed; the
+goal is to make sure code builds, tests pass and migrations apply cleanly before
+it is promoted to `staging`.
+
+The checks live in a reusable workflow, `.github/workflows/ci.yml`, so the
+staging and production pipelines can call it too:
+
+| Job | Checks |
+| --- | ------ |
+| Backend | Prettier, ESLint, Jest unit tests, `nest build` |
+| Frontend | Prettier, ESLint, Vitest unit tests, type-check + Vite build |
+| Database migrations | Starts PostgreSQL with `backend/docker-compose.yml`; Flyway `migrate`, `validate` and `info` (every migration must be `Success`, file names validated); `npm run db:check`; fails if an existing migration file was modified, renamed or deleted |
+| End-to-end | `./test.sh` (full stack, including restart and persistence) |
+| Security | `npm audit` (report only, in the job summary) and a gitleaks secret scan |
+
+Also on `develop`:
+
+- **Dependency review** (pull requests only) fails a PR that adds a dependency
+  with a known high or critical vulnerability.
+- **CodeQL** (`.github/workflows/codeql.yml`) runs static analysis; findings
+  appear under *Security → Code scanning*.
+- **Dependabot** (`.github/dependabot.yml`) opens weekly update PRs against
+  `develop` for both npm projects, the Docker images and the GitHub Actions.
+
 ## Architecture
 
 ```
