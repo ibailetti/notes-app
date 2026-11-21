@@ -28,7 +28,7 @@ export class NotesRepository {
     if (filter.categoryId !== undefined) {
       // Filter with a sub-query so every category of a matching note is still loaded.
       query.andWhere(
-        `note.id IN (SELECT nc.noteId FROM ${NOTE_CATEGORIES_TABLE} nc WHERE nc.categoryId = :categoryId)`,
+        `note.id IN (SELECT nc.note_id FROM ${NOTE_CATEGORIES_TABLE} nc WHERE nc.category_id = :categoryId)`,
         { categoryId: filter.categoryId },
       );
     }

@@ -6,7 +6,6 @@ import {
   HttpCode,
   HttpStatus,
   Param,
-  ParseIntPipe,
   Patch,
   Post,
   Query,
@@ -15,6 +14,7 @@ import {
 import { JwtAuthGuard } from '../auth/jwt-auth.guard';
 import { AuthenticatedUser } from '../common/authenticated-user';
 import { CurrentUser } from '../common/current-user.decorator';
+import { ParseIdPipe } from '../common/parse-id.pipe';
 import { CreateNoteDto } from './dto/create-note.dto';
 import { ListNotesQueryDto } from './dto/list-notes-query.dto';
 import { UpdateNoteDto } from './dto/update-note.dto';
@@ -37,7 +37,7 @@ export class NotesController {
   @Get(':id')
   findOne(
     @CurrentUser() user: AuthenticatedUser,
-    @Param('id', ParseIntPipe) id: number,
+    @Param('id', ParseIdPipe) id: number,
   ): Promise<Note> {
     return this.notesService.findOne(user.id, id);
   }
@@ -53,7 +53,7 @@ export class NotesController {
   @Patch(':id')
   update(
     @CurrentUser() user: AuthenticatedUser,
-    @Param('id', ParseIntPipe) id: number,
+    @Param('id', ParseIdPipe) id: number,
     @Body() dto: UpdateNoteDto,
   ): Promise<Note> {
     return this.notesService.update(user.id, id, dto);
@@ -63,7 +63,7 @@ export class NotesController {
   @HttpCode(HttpStatus.NO_CONTENT)
   remove(
     @CurrentUser() user: AuthenticatedUser,
-    @Param('id', ParseIntPipe) id: number,
+    @Param('id', ParseIdPipe) id: number,
   ): Promise<void> {
     return this.notesService.remove(user.id, id);
   }
@@ -71,7 +71,7 @@ export class NotesController {
   @Patch(':id/archive')
   archive(
     @CurrentUser() user: AuthenticatedUser,
-    @Param('id', ParseIntPipe) id: number,
+    @Param('id', ParseIdPipe) id: number,
   ): Promise<Note> {
     return this.notesService.archive(user.id, id);
   }
@@ -79,7 +79,7 @@ export class NotesController {
   @Patch(':id/unarchive')
   unarchive(
     @CurrentUser() user: AuthenticatedUser,
-    @Param('id', ParseIntPipe) id: number,
+    @Param('id', ParseIdPipe) id: number,
   ): Promise<Note> {
     return this.notesService.unarchive(user.id, id);
   }
@@ -87,8 +87,8 @@ export class NotesController {
   @Post(':id/categories/:categoryId')
   addCategory(
     @CurrentUser() user: AuthenticatedUser,
-    @Param('id', ParseIntPipe) id: number,
-    @Param('categoryId', ParseIntPipe) categoryId: number,
+    @Param('id', ParseIdPipe) id: number,
+    @Param('categoryId', ParseIdPipe) categoryId: number,
   ): Promise<Note> {
     return this.notesService.addCategory(user.id, id, categoryId);
   }
@@ -96,8 +96,8 @@ export class NotesController {
   @Delete(':id/categories/:categoryId')
   removeCategory(
     @CurrentUser() user: AuthenticatedUser,
-    @Param('id', ParseIntPipe) id: number,
-    @Param('categoryId', ParseIntPipe) categoryId: number,
+    @Param('id', ParseIdPipe) id: number,
+    @Param('categoryId', ParseIdPipe) categoryId: number,
   ): Promise<Note> {
     return this.notesService.removeCategory(user.id, id, categoryId);
   }

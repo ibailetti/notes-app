@@ -6,9 +6,11 @@ import {
   IsNotEmpty,
   IsOptional,
   IsString,
+  Max,
   MaxLength,
   Min,
 } from 'class-validator';
+import { MAX_ID } from '../../common/parse-id.pipe';
 
 export class CreateNoteDto {
   @Transform(({ value }: { value: unknown }) =>
@@ -29,5 +31,6 @@ export class CreateNoteDto {
   @ArrayUnique()
   @IsInt({ each: true })
   @Min(1, { each: true })
+  @Max(MAX_ID, { each: true })
   categoryIds?: number[];
 }

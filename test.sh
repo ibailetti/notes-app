@@ -3,16 +3,21 @@
 # End-to-end test: starts the app with ./start.sh, exercises the REST API with
 # curl, restarts everything and checks that the data was persisted.
 #
-# Uses a separate database (backend/notes.test.sqlite) so your real notes are
-# never touched; it is deleted when the tests finish.
+# Uses a separate PostgreSQL container and volume (Docker Compose project
+# "notes-test" on port 55432), so your real notes are never touched. The test
+# container and its data are removed when the tests finish.
 #
 set -uo pipefail
 
 ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 cd "$ROOT_DIR"
 
-TEST_DB="notes.test.sqlite"
-export DB_PATH="$TEST_DB"
+# Isolated test database (read by start.sh, docker compose and the backend).
+export COMPOSE_PROJECT_NAME="notes-test"
+export DB_PORT="${TEST_DB_PORT:-55432}"
+export DB_NAME="notes_test"
+export DB_USER="notes"
+export DB_PASSWORD="notes"
 BACKEND_PORT="${PORT:-3000}"
 FRONTEND_PORT="${FRONTEND_PORT:-5173}"
 API="http://localhost:$BACKEND_PORT"
@@ -72,9 +77,15 @@ stop_app() {
   START_PID=""
 }
 
+compose() {
+  (cd "$ROOT_DIR/backend" && docker compose "$@")
+}
+
 cleanup() {
   stop_app
-  rm -f "$ROOT_DIR/backend/$TEST_DB" "$LOG_FILE"
+  # Remove the test container and its volume.
+  compose down -v --remove-orphans >/dev/null 2>&1
+  rm -f "$LOG_FILE"
 }
 trap cleanup EXIT
 trap 'exit 130' INT TERM
@@ -125,18 +136,30 @@ login() {
 
 command -v curl >/dev/null 2>&1 || abort "curl is required to run the tests."
 command -v node >/dev/null 2>&1 || abort "Node.js is required to run the tests."
-rm -f "backend/$TEST_DB"
+command -v docker >/dev/null 2>&1 || abort "Docker is required to run the tests."
+# Start from an empty test database.
+compose down -v --remove-orphans >/dev/null 2>&1
 
 section "1. Startup"
 start_app
-pass "./start.sh started backend and frontend"
+pass "./start.sh started PostgreSQL, backend and frontend"
 if grep -Eq 'ERROR|Error:' "$LOG_FILE"; then
   failure "startup log has no errors" "$(grep -E 'ERROR|Error:' "$LOG_FILE" | head -5)"
 else
   pass "startup log has no errors"
 fi
-[ -f "backend/$TEST_DB" ] && pass "SQLite database file was created" ||
-  failure "SQLite database file was created"
+FLYWAY_INFO="$(compose run --rm flyway info 2>/dev/null)"
+echo "$FLYWAY_INFO" | grep -Eq '\| *Versioned *\| *1 *\| *baseline .*\| *Success *\|' &&
+  pass "Flyway applied V1__baseline (state: Success)" ||
+  failure "Flyway applied V1__baseline (state: Success)" "$FLYWAY_INFO"
+TABLES="$(compose exec -T postgres psql -U "$DB_USER" -d "$DB_NAME" -Atc \
+  "select string_agg(tablename, ',' order by tablename) from pg_tables where schemaname = 'public'")"
+[ "$TABLES" = "categories,flyway_schema_history,note_categories,notes,users" ] &&
+  pass "schema has the app tables plus flyway_schema_history" ||
+  failure "schema has the app tables plus flyway_schema_history" "got: $TABLES"
+grep -q "Entities match the database schema" "$LOG_FILE" &&
+  pass "TypeORM entities match the Flyway schema" ||
+  failure "TypeORM entities match the Flyway schema"
 WEB_BODY="$(curl -s "$WEB")"
 echo "$WEB_BODY" | grep -q '<div id="root">' && pass "frontend serves the React app at $WEB" ||
   failure "frontend serves the React app at $WEB"
@@ -185,6 +208,13 @@ api PATCH "/notes/$NOTE2" '{"title":"Groceries (updated)","content":"Milk, eggs,
 expect "edit a note" 200 'd.title === "Groceries (updated)" && d.content === "Milk, eggs, bread"'
 api PATCH /notes/99999 '{"title":"nope"}'
 expect "editing a missing note returns 404" 404
+api GET /notes/99999999999
+expect "an id beyond the Postgres integer range is rejected" 400
+api GET "/notes?categoryId=99999999999"
+expect "a categoryId beyond the Postgres integer range is rejected" 400
+api GET "/notes/$NOTE1"
+expect "JSON types are unchanged for the frontend (number id, boolean, ISO dates)" 200 \
+  'typeof d.id === "number" && typeof d.archived === "boolean" && typeof d.categories[0].id === "number" && !isNaN(Date.parse(d.updatedAt)) && d.updatedAt.endsWith("Z")'
 
 section "5. Note ↔ category"
 api POST "/notes/$NOTE2/categories/$PERSONAL_ID"
@@ -243,6 +273,11 @@ if curl -s -o /dev/null "$API" || curl -s -o /dev/null "$WEB"; then
   failure "both servers stop cleanly"
 else
   pass "both servers stop cleanly"
+fi
+if [ -z "$(compose ps -q --status running postgres 2>/dev/null)" ]; then
+  pass "PostgreSQL container stopped"
+else
+  failure "PostgreSQL container stopped"
 fi
 start_app
 pass "app restarted"

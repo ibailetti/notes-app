@@ -2,6 +2,7 @@ import {
   Column,
   CreateDateColumn,
   Entity,
+  JoinColumn,
   JoinTable,
   ManyToMany,
   ManyToOne,
@@ -13,37 +14,39 @@ import { User } from '../users/user.entity';
 
 export const NOTE_CATEGORIES_TABLE = 'note_categories';
 
+/** Maps the `notes` table (schema owned by Flyway, see db/migrations). */
 @Entity('notes')
 export class Note {
-  @PrimaryGeneratedColumn()
+  @PrimaryGeneratedColumn('identity', { generatedIdentity: 'BY DEFAULT' })
   id: number;
 
-  @Column({ length: 200 })
+  @Column({ type: 'varchar', length: 200 })
   title: string;
 
   @Column({ type: 'text', default: '' })
   content: string;
 
-  @Column({ default: false })
+  @Column({ type: 'boolean', default: false })
   archived: boolean;
 
-  @CreateDateColumn()
+  @CreateDateColumn({ name: 'created_at', type: 'timestamptz' })
   createdAt: Date;
 
-  @UpdateDateColumn()
+  @UpdateDateColumn({ name: 'updated_at', type: 'timestamptz' })
   updatedAt: Date;
 
-  @Column({ select: false })
+  @Column({ name: 'user_id', type: 'integer', select: false })
   userId: number;
 
   @ManyToOne(() => User, (user) => user.notes, { onDelete: 'CASCADE' })
+  @JoinColumn({ name: 'user_id' })
   user: User;
 
   @ManyToMany(() => Category, (category) => category.notes)
   @JoinTable({
     name: NOTE_CATEGORIES_TABLE,
-    joinColumn: { name: 'noteId', referencedColumnName: 'id' },
-    inverseJoinColumn: { name: 'categoryId', referencedColumnName: 'id' },
+    joinColumn: { name: 'note_id', referencedColumnName: 'id' },
+    inverseJoinColumn: { name: 'category_id', referencedColumnName: 'id' },
   })
   categories: Category[];
 }

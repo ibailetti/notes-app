@@ -4,22 +4,25 @@ import {
   Entity,
   OneToMany,
   PrimaryGeneratedColumn,
+  Unique,
 } from 'typeorm';
 import { Category } from '../categories/category.entity';
 import { Note } from '../notes/note.entity';
 
+/** Maps the `users` table (schema owned by Flyway, see db/migrations). */
 @Entity('users')
+@Unique(['username'])
 export class User {
-  @PrimaryGeneratedColumn()
+  @PrimaryGeneratedColumn('identity', { generatedIdentity: 'BY DEFAULT' })
   id: number;
 
-  @Column({ unique: true })
+  @Column({ type: 'varchar' })
   username: string;
 
-  @Column({ select: false })
+  @Column({ name: 'password_hash', type: 'varchar', select: false })
   passwordHash: string;
 
-  @CreateDateColumn()
+  @CreateDateColumn({ name: 'created_at', type: 'timestamptz' })
   createdAt: Date;
 
   @OneToMany(() => Note, (note) => note.user)

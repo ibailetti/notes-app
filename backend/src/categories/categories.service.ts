@@ -4,6 +4,7 @@ import {
   Injectable,
   NotFoundException,
 } from '@nestjs/common';
+import { isUniqueViolation } from '../database/database-errors';
 import { CategoriesRepository } from './categories.repository';
 import { Category } from './category.entity';
 import { CreateCategoryDto } from './dto/create-category.dto';
@@ -18,10 +19,17 @@ export class CategoriesService {
 
   async create(userId: number, { name }: CreateCategoryDto): Promise<Category> {
     if (await this.categoriesRepository.existsByName(userId, name)) {
-      throw new ConflictException(`Category "${name}" already exists`);
+      throw this.duplicateName(name);
     }
-    const { id } = await this.categoriesRepository.create(userId, name);
-    return this.findOne(userId, id);
+    try {
+      const { id } = await this.categoriesRepository.create(userId, name);
+      return await this.findOne(userId, id);
+    } catch (error) {
+      // Two concurrent requests can both pass the check above; the unique
+      // constraint in the database decides, and we still answer 409.
+      if (isUniqueViolation(error)) throw this.duplicateName(name);
+      throw error;
+    }
   }
 
   async remove(userId: number, id: number): Promise<void> {
@@ -54,5 +62,9 @@ export class CategoriesService {
       );
     }
     return categories;
+  }
+
+  private duplicateName(name: string): ConflictException {
+    return new ConflictException(`Category "${name}" already exists`);
   }
 }
